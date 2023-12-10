@@ -1,4 +1,4 @@
-# CMPSC311-HonorsOption#
+# CMPSC311-HonorsOption
 Schryer Honors Option Project for CMPSC311 by Quinn Butcher 
 
 
