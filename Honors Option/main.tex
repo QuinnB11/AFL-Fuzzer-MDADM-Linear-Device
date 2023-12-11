@@ -1,0 +1,675 @@
+\documentclass[11pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{enumitem}
+\usepackage{filecontents}
+\usepackage{verbatim}
+\usepackage{eurosym}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage[export]{adjustbox}
+% \usepackage[showframe]{geometry}
+\setlength{\voffset}{-0.75in}
+\setlength{\headsep}{5pt}
+
+
+
+\definecolor{mGreen}{rgb}{0,0.6,0}
+\definecolor{mGray}{rgb}{0.5,0.5,0.5}
+\definecolor{mPurple}{rgb}{0.58,0,0.82}
+\definecolor{backgroundColour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{CStyle}{
+    backgroundcolor=\color{backgroundColour},   
+    commentstyle=\color{mGreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{mGray},
+    stringstyle=\color{mPurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    language=C,
+    basicstyle=\tiny
+}
+
+
+\begin{document}
+
+\begin{titlepage}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
+
+\center % Center everything on the page
+ 
+%----------------------------------------------------------------------------------------
+%	HEADING SECTIONS
+%----------------------------------------------------------------------------------------
+
+\textsc{\LARGE Pennsylvania State University}\\[1.5cm] 
+\textsc{\Large CMPSC 311}\\[0.5cm] 
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\HRule \\[0.4cm]
+{ \huge \bfseries Honors Option}\\[0.4cm] % Title of your document
+\HRule \\[1.5cm]
+ 
+%----------------------------------------------------------------------------------------
+%	AUTHOR SECTION
+%----------------------------------------------------------------------------------------
+
+\begin{minipage}{0.4\textwidth}
+\begin{flushleft} \large
+\emph{Author:}\\
+Quinn \textsc{Butcher} \textit{(qdb5021)} \\
+\end{flushleft}
+\end{minipage}
+~
+\begin{minipage}{0.4\textwidth}
+\begin{flushright} \large
+\emph{Lecturer:} \\
+Prof. Syed  \\Hussian\\
+\end{flushright}
+\end{minipage}\\[2cm]
+
+
+%----------------------------------------------------------------------------------------
+%	DATE SECTION
+%----------------------------------------------------------------------------------------
+
+{\large November 14, 2023}\\[2cm] 
+
+%----------------------------------------------------------------------------------------
+%	LOGO SECTION
+%----------------------------------------------------------------------------------------
+
+\includegraphics[width=200px, keepaspectratio]{logo.png}\\
+ 
+%----------------------------------------------------------------------------------------
+
+\vfill
+
+\end{titlepage}
+
+\section{Set-up}
+
+To set up AFL, we must first clone the AFL repo with the command at:
+\begin{equation}
+    git \: clone \: https://github.com/AFLplusplus/AFLplusplus.git
+\end{equation}
+To use the AFL fuzzer, we must first $make$ AFL on our home computer, which is provided below [if you have any errors please reference the $README.md$ provided through the GitHub link]. We are using AFL++ because AFL has not been updated in many years, and such there are many improvements that have been made in fuzzing. AFL++ is specifically a fork that provided additional enhancements and features that can be helpful to us, all of which has been continued to be improved.
+\\
+\subsection{Prerequisites}
+Although running \textit{AFL++} does not need root access, to build \textit{AFL++} we need root-access to download the many prerequisites that AFL has such as llvm, clang, etc in order to run properly and efficiently. Such, to run \textit{AFL++}, I am using a VM that is running the Ubuntu 18.04 LTS OS. The version of C that I am using is  7.5.0 which is standard on this OS. 
+\subsection{Download}
+First download the prerequisites with $sudo \: ap-get \: install$ and then $cd$ into your \textit{AFL++} directory. Then run:
+\begin{equation}
+    make \: distrib 
+\end{equation}
+\begin{equation}
+    sudo \: make \: install
+\end{equation}
+in your terminal.
+\subsection{Overall Outlook of Report}
+\begin{enumerate}
+    \item We will first delve into how to setup AFL to run on our programs
+    \item Introduce our 3 different code programs that we will run AFL on and the time that is required to run a fuzzing campaign on each
+    \item One each code page, the format will follow such as:
+    \begin{enumerate}
+        \item Code outline
+        \item Outline of AFL output
+        \item Fixes
+    \end{enumerate}
+\end{enumerate}
+
+\newpage
+
+\section{Running AFL}
+To run AFL, we use $afl-gcc$ and $afl-gcc-clang$ to generate the fuzz output files that we are looking for. We first need to set an input directory and an output directory with the following commands:
+
+\begin{eqnarray}
+    \text{mkdir output} \\
+    \text{mkdir input}
+\end{eqnarray}
+\textbf{NOTE:} We must initialize some test with \textit{echo "$<$input-text$>$" $>$ input/1.txt} such that we can have an initial tester seed if there needs input. AFL will figure the rest out, such this input text does not need to be complex. We will detail the inputs that are chosen for each AFL fuzz. 
+\\
+\\
+After making the input and output directories, we must make our program. First, we create a \textit{MakeFile} that links back to $afl-gcc$, such we make a \textit{MakeFile} in which we include we can include either of the following, based on what our initial C function that we are testing:
+
+\begin{lstlisting}[style=CStyle]
+ CC=afl-gcc  #compiler
+ TARGET=<fileName> #target file name
+all:
+           AFL_HARDEN=1 $(CC) -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined <fileName>.c -o $(TARGET)
+
+clean:
+            rm $(TARGET)
+\end{lstlisting}
+
+\textbf{OR}
+
+\begin{lstlisting}[style=CStyle]
+CC=afl-gcc-clang        #compiler
+CFLAGS=-c -Wall -I. -fpic -g -fbounds-check -Werror
+LDFLAGS=-L.
+LIBS=-lcrypto
+
+OBJS=tester.o util.o mdadm.o
+
+%.o:	%.c %.h
+	$(CC) $(CFLAGS) $< -o $@
+
+tester:	$(OBJS) jbod.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+clean:
+	rm -f $(OBJS) tester
+\end{lstlisting}
+
+Then we can make our program. To do this we run:
+
+\begin{eqnarray}
+    \text{make all} \\
+    \text{make}
+\end{eqnarray}
+
+
+\textbf{NOTE} If we use the first \textit{Makefile}, we use the first command and if we use the seconed \textit{Makefile}, we use the second command. \\
+
+
+Finally we run the afl-fuzzer with the following commands where we replace \textit{filename} with our desired file-name for our C file.
+
+\begin{eqnarray}
+\text{afl-gcc -g -fsanitize=address \textbf{\textit{filename}}.c -o \textbf{\textit{filename}}} \\
+\text{afl-fuzz -i input -o output -m none -- ./\textbf{\textit{filename}} @@}
+\end{eqnarray}
+
+\textbf{NOTE:} We do not need to do the first step (step (8)) if we use the second \textit{Makefile}. 
+\\
+\\
+To run our crashes/hangs, we must execute the \textit{.o} file that we are testing by running 
+\begin{equation}
+    \textit{./$<$pathtofile$>$  id:0000$<$rest-of-file$>$}
+\end{equation}
+
+
+\newpage
+
+\section{Code 1}
+
+\subsection{Code}
+\begin{lstlisting}[style=CStyle]
+/*
+Author: Hardik Shah
+Email: hardik05@gmail.com
+Web: http://hardik05.wordpress.com
+*/
+
+//a vulnerable c program to explain common vulnerability types
+//fuzz with AFL
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+
+struct Image
+{
+	char header[4];
+	int width;
+	int height;
+	char data[10];
+};
+
+void stack_operation(){
+	char buff[0x1000];
+	while(1){
+		stack_operation();
+	}
+}
+
+int ProcessImage(char* filename){
+	FILE *fp;
+	struct Image img;
+
+	fp = fopen(filename,"r");            //Statement   1
+
+	if(fp == NULL)
+	{
+		printf("\nCan't open file or file doesn't exist.\r\n");
+		exit(0);
+	}
+
+
+	while(fread(&img,sizeof(img),1,fp)>0)
+	{
+		//if(strcmp(img.header,"IMG")==0)
+		//{
+			printf("\n\tHeader\twidth\theight\tdata\t\r\n");
+
+			printf("\n\t%s\t%d\t%d\t%s\r\n",img.header,img.width,img.height,img.data);
+
+
+			//integer overflow 0x7FFFFFFF+1=0
+			//0x7FFFFFFF+2 = 1
+			//will cause very large/small memory allocation.
+			int size1 = img.width + img.height;
+			char* buff1=(char*)malloc(size1);
+
+			//heap buffer overflow
+			memcpy(buff1,img.data,sizeof(img.data));
+			free(buff1);
+			//double free	
+			if (size1/2==0){
+				free(buff1);
+			}
+			else{
+				//use after free
+				if(size1/3 == 0){
+					buff1[0]='a';
+				}
+			}
+
+
+			//integer underflow 0-1=-1
+			//negative so will cause very large memory allocation
+			int size2 = img.width - img.height+100;
+			//printf("Size1:%d",size1);
+			char* buff2=(char*)malloc(size2);
+
+			//heap buffer overflow
+			memcpy(buff2,img.data,sizeof(img.data));
+
+			//divide by zero
+			int size3= img.width/img.height;
+			//printf("Size2:%d",size3);
+
+			char buff3[10];
+			char* buff4 =(char*)malloc(size3);
+			memcpy(buff4,img.data,sizeof(img.data));
+
+			//OOBR read bytes past stack/heap buffer
+			char OOBR = buff3[size3];
+			char OOBR_heap = buff4[size3];
+
+			//OOBW write bytes past stack/heap buffer
+			buff3[size3]='c';
+			buff4[size3]='c';
+
+			if(size3>10){
+				//memory leak here
+				buff4=0;
+			}
+			else{
+				free(buff4);
+			}
+			int size4 = img.width * img.height;
+			if(size4/2==0){
+				//stack exhaustion here
+				stack_operation();
+			}
+			else{
+				//heap exhaustion here
+				char *buff5;
+				do{
+				buff5 = (char*)malloc(size4);
+				}while(buff5);
+			}
+			free(buff2);
+		//}
+		//else
+		//	printf("invalid header\r\n");
+
+	}
+	fclose(fp);
+	return 0;
+}
+
+int main(int argc,char **argv)
+{
+	if (argc < 2) {
+    		fprintf(stderr, "no input file\n");
+    		exit(-1);
+  	}
+	ProcessImage(argv[1]);
+	return 0;
+}
+\end{lstlisting}
+
+\subsection{Description of code}
+This is a coding example by Hardik Shah that includes many different crashes in C to help demonstrate and test  \textit{} to make sure that it is working as intended. The main file that we are testing for is $imgRead.c$. The input file in this case includes just the word "test," which demonstartes how \textit{AFL++} can generate input cases. 
+
+\subsection{Fuzzing Campaign}
+We ran a 1 minute fuzzing campaign on this program, which resulted with some of the following bugs:
+\begin{enumerate}
+    \item \textit{AddressSanitizer failed to allocate 0xfffffffffffff7fe bytes}
+    \item \textit{runtime error: signed integer overflow: 1296911693 + 1296911793 cannot be represented in type 'int'}
+    \item \textit{runtime error: signed integer overflow: 2122219134 + 2122219134 cannot be represented in type 'int'}
+\end{enumerate}
+
+There were a total of 10 crashes found in this code, of which the output file entire folder with the \textit{AFL-fuzzer} stats and crashes reports. 
+
+\subsection{Fixes}
+Since this was a test run, there are no fixes that are needed to be made. If the reader is curious, linked with the project folder, a fixed version is included titled \textit{imgRead$\_$patched.c}.  
+
+
+\newpage
+
+\section{Code 3 [Assignment 3]}
+
+\subsection{Code}
+\begin{lstlisting}[style=CStyle]
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <err.h>
+#include <assert.h>
+
+#include "jbod.h"
+#include "mdadm.h"
+#include "util.h"
+#include "tester.h"
+
+#define TESTER_ARGUMENTS "hw:"
+#define USAGE                                               \
+  "USAGE: test [-h] [-w workload-file]\n"                   \
+  "\n"                                                      \
+  "where:\n"                                                \
+  "    -h - help mode (display this message)\n"             \
+  "\n"                                                      \
+
+
+/* Utility functions. */
+char *stringify(const uint8_t *buf, int length) {
+  char *p = (char *)malloc(length * 6);
+  for (int i = 0, n = 0; i < length; ++i) {
+    if (i && i % 16 == 0)
+      n += sprintf(p + n, "\n");
+    n += sprintf(p + n, "0x%02x ", buf[i]);
+  }
+  return p;
+}
+
+int run_workload(char *workload);
+
+int main(int argc, char *argv[])
+{
+  char *workload = NULL;
+
+  workload = argv[1];
+  run_workload(workload);
+  return 0;
+}
+
+
+int equals(const char *s1, const char *s2) {
+  return strncmp(s1, s2, strlen(s2)) == 0;
+}
+
+
+int run_workload(char *workload) {
+  char line[256], cmd[32];
+  uint8_t buf[MAX_IO_SIZE];
+  uint32_t addr, len, ch;
+  int rc;
+
+  memset(buf, 0, MAX_IO_SIZE);
+
+  FILE *f = fopen(workload, "r");
+  if (!f)
+    err(1, "Cannot open workload file %s", workload);
+
+  int line_num = 0;
+  while (fgets(line, 256, f)) {
+    ++line_num;
+    line[strlen(line)-1] = '\0';
+    if (equals(line, "MOUNT")) {
+      rc = mdadm_mount();
+    } else if (equals(line, "UNMOUNT")) {
+      rc = mdadm_unmount();
+    } else if (equals(line, "WRITE_PERMIT")) {
+      rc = mdadm_write_permission();
+    }else if (equals(line, "WRITE_PERMIT_REVOKE")) {
+      rc = mdadm_revoke_write_permission();
+    } else if (equals(line, "SIGNALL")) {
+      for (int i = 0; i < JBOD_NUM_DISKS; ++i)
+        for (int j = 0; j < JBOD_NUM_BLOCKS_PER_DISK; ++j)
+          jbod_sign_block(i, j);
+    } else {
+      if (sscanf(line, "%7s %7u %4u %3u", cmd, &addr, &len, &ch) != 4)
+        errx(1, "Failed to parse command: [%s\n], aborting.", line);
+      if (equals(cmd, "READ")) {
+        rc = mdadm_read(addr, len, buf);
+      } else if (equals(cmd, "WRITE")) {
+        memset(buf, ch, len);
+        rc = mdadm_write(addr, len, buf);
+      } else {
+        errx(1, "Unknown command [%s] on line %d, aborting.", line, line_num);
+      }
+    }
+
+    if (rc == -1)
+      errx(1, "tester failed when processing command [%s] on line %d", line, line_num);
+  }
+  fclose(f);
+  return 0;
+}
+\end{lstlisting}
+
+\subsection{Description of Code}
+This is the code that opens the input files and runs them (we include simple-input). We only need to include simple-input because AFL generates new test cases for us. The code that will be tested for assignment 3 will consist of the code that I submitted originally and an updated version of the code to see which code has many fixes. I have labeled  \textbf{Fa23-assignment3} as the assignemtn code that will have my original code that I submitted along with the fuzzed commands. I will then have another folder labeled as \textbf{FIXED-fa23-assignment3} in which my fixed code will be and I will run a shorter fuzzing campaign. 
+
+
+
+\subsection{Fuzzing Campaign 1}
+We ran a 2 hour and 15 minute fuzzing campaign which resulted in some of the following bugs:
+\begin{enumerate}
+    \item \textit{Buffer Overflow} detected
+    \item \textit{Buffer Overflow} detected
+    \item \textit{Buffer Overflow} detected
+\end{enumerate}
+\textbf{NOTE:} Each buffer overflow detection is a unique crash, which can be seen in the attached output file crashes. \\
+The crash statistics show that a total of 19 unique crashes were found (all being buffer overflows), while a total of over 20 thousand crashes were found. 
+
+
+\subsection{Fuzzing Campaign 2}
+We ran a 1 hour and 15 minute fuzzing campaign in which we used \textit{afl-gcc-clang} instead of \textit{afl-gcc} [afl-gcc is outdated and such the clang version runs much faster] which resulted in some of the following bugs:
+\begin{enumerate}
+    \item \textit{Buffer Overflow} detected
+    \item \textit{Buffer Overflow} detected
+    \item \textit{Buffer Overflow} detected
+\end{enumerate}
+\textbf{NOTE:} Although I have got the same crashes, there were much fewer buffer overflows which signifies that the code was much more efficient. There were a total of 4 less unique crashes, which is very telling of the improvements. 
+
+\subsection{Fixes}
+Although we got crashes in both of these fuzzing campaigns, the crashes involved buffer overflows which is likely from the large amount of input commands. The one thing that I found in my revised code was a incorrect validation term where it didn't pass all the validation that \textit{mdadm.c} needed to pass, such causing buffer overflows when the JBOD size was too small for a bigger \textit{WRITE} command. I ending up fixing this and the crashes went down when I re-ran it by a total of 3-4 unique crashes [not included in the GitHub files]. I found this buffer overflow with \textit{gdb}.  
+
+\newpage
+
+\section{Code 4 [Assignment 4]}
+
+\subsection{Code}
+\begin{lstlisting}[style=CStyle]
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <err.h>
+#include <assert.h>
+
+#include "jbod.h"
+#include "mdadm.h"
+#include "util.h"
+#include "tester.h"
+
+#define TESTER_ARGUMENTS "hw:s:"
+#define USAGE                                               \
+  "USAGE: test [-h] [-w workload-file] [-s cache_size]\n"                   \
+  "\n"                                                      \
+  "where:\n"                                                \
+  "    -h - help mode (display this message)\n"             \
+  "\n"                                                      \
+
+
+/* Utility functions. */
+char *stringify(const uint8_t *buf, int length) {
+  char *p = (char *)malloc(length * 6);
+  for (int i = 0, n = 0; i < length; ++i) {
+    if (i && i % 16 == 0)
+      n += sprintf(p + n, "\n");
+    n += sprintf(p + n, "0x%02x ", buf[i]);
+  }
+  return p;
+}
+
+int run_workload(char *workload, int cache_size);
+
+int main(int argc, char *argv[])
+{
+  int ch, cache_size = 0;
+  char *workload = NULL;
+
+  workload = arg[1];
+  cache_size = 1024;
+  
+  if (workload) {
+    run_workload(workload, cache_size);
+    return 0;
+  }
+    
+}
+
+int equals(const char *s1, const char *s2) {
+  return strncmp(s1, s2, strlen(s2)) == 0;
+}
+
+int run_workload(char *workload, int cache_size) {
+  char line[256], cmd[32];
+  uint8_t buf[MAX_IO_SIZE];
+  uint32_t addr, len, ch;
+  int rc;
+
+  memset(buf, 0, MAX_IO_SIZE);
+
+  FILE *f = fopen(workload, "r");
+  if (!f)
+    err(1, "Cannot open workload file %s", workload);
+
+  if (cache_size) {
+    rc = cache_create(cache_size);
+    if (rc != 1)
+      errx(1, "Failed to create cache.");
+  }
+
+  int line_num = 0;
+  while (fgets(line, 256, f)) {
+    ++line_num;
+    line[strlen(line)-1] = '\0';
+    if (equals(line, "MOUNT")) {
+      rc = mdadm_mount();
+    } else if (equals(line, "UNMOUNT")) {
+      rc = mdadm_unmount();
+    } else if (equals(line, "WRITE_PERMIT")) {
+      rc = mdadm_write_permission();
+    } else if (equals(line, "WRITE_PERMIT_REVOKE")) {
+      rc = mdadm_revoke_write_permission();
+    } else if (equals(line, "SIGNALL")) {
+      for (int i = 0; i < JBOD_NUM_DISKS; ++i)
+        for (int j = 0; j < JBOD_NUM_BLOCKS_PER_DISK; ++j)
+          jbod_sign_block(i, j);
+    } else {
+      if (sscanf(line, "%7s %7u %4u %3u", cmd, &addr, &len, &ch) != 4)
+        errx(1, "Failed to parse command: [%s\n], aborting.", line);
+      if (equals(cmd, "READ")) {
+        rc = mdadm_read(addr, len, buf);
+      } else if (equals(cmd, "WRITE")) {
+        memset(buf, ch, len);
+        rc = mdadm_write(addr, len, buf);
+      } else {
+        errx(1, "Unknown command [%s] on line %d, aborting.", line, line_num);
+      }
+    }
+
+    if (rc == -1)
+      errx(1, "tester failed when processing command [%s] on line %d", line, line_num);
+  }
+  fclose(f);
+
+  if (cache_size)
+    cache_destroy();
+
+  jbod_print_cost();
+  cache_print_hit_rate();
+
+  return 0;
+}
+\end{lstlisting}
+
+\subsection{Description of Code}
+This is the code that opens input files and runs them with a cache (we include simple-input). The cache size is a default 1024. This fuzzing campaign also consists of two different projects, the original assignment 4 that I submitted and a FIXED assignment 4. The original assignment is detailed in the first fuzzing campaign and the updated assignment 4 is detailed in the second fuzzing campaign. 
+
+
+\subsection{Fuzzing Campaign 1}
+We ran a 2 hour and 20 minute fuzzing campaign [also with \textit{afl-clang}] which resulted in some of the following bugs:
+\begin{enumerate}
+    \item \textit{runtime error: signed integer overflow: 4294967295 + 4294967295 cannot be represented in type 'int'}
+    \item \textit{Buffer Overflow} detected
+    \item \textit{Buffer Overflow} detected
+\end{enumerate}
+
+\subsection{Fixes}
+I first made a false bug in my code to have an error that is not a buffer overflow. I think that all these buffer overflows are coming from the way the \textit{jbod\_disk} is configured, such the only fix that could be made is to change how we are accessing the data structure entirely. I think that maybe using a \textbf{hash-map} instead of this huge array will be a lot more beneficial and help reduce all of these bugs. 
+
+
+\subsection{Fuzzing Campaign 2}
+We ran a 1 hour 20 minute fuzzing campaign [also with \textit{afl-clang}] which resulted in some of the following bugs:
+\begin{enumerate}
+    \item \textit{runtime error: signed integer overflow: 4294967295 + 4294967295 cannot be represented in type 'int'}
+    \item \textit{Buffer Overflow} detected
+    \item \textit{Buffer Overflow} detected
+\end{enumerate}
+
+\subsection{Fixes}
+Although there are similar bugs in this fuzzing campaign, the total cycles w/o finds increased by 9, which is a big increase based on the large input file that we worked with. This is telling to show that although there are more unique bugs (which resulted from improper \textit{JBOD} operation validation which I found after fuzzing), the total cycles that were valid worked more frequently than the initial code. One of the big fixes that I made from my first fuzzing campaign was how \textit{JBOD} write worked as it was causing many buffer overflows by stretching over disks in weird ways and adding too much information to the temporary buffer. This was also found with \textit{gdb} and fixed from my second fuzzing campaign. 
+
+
+
+
+\newpage
+
+\section{Changes to AFL}
+
+\subsection{User-Changes}
+I would first make it easier to detect buffer overflows with \textit{AFL}, specifically so that I wouldn't have to use \textit{gdb} to see which my buffer is overflowing. This was extremely prevalent in my assignment 3, such I think this is an important fix to make. Another fix that I think that should be made to \textit{AFL} is an easier way to track which bugs happen instead of having to run the bugs again through the object file again to see what went wrong in my code. 
+
+\subsection{Perspective of AFL++}
+I think that \textit{AFL++} is much better than \textit{AFL} and has made great strides in speeding up the fuzzing process. I also think that it also reaches a higher bitmap coverage percentage, which is very important in finding bugs in code by increases the number of new branches being taken from the input. 
+
+
+\end{document}
