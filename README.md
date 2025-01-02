@@ -1,5 +1,5 @@
-# CMPSC311-HonorsOption
-Schryer Honors Option Project for CMPSC311 by Quinn Butcher 
+# AFL Fuzzer
+Schryer Honors Option Project by Quinn Butcher 
 
 
 ## What this Project does ##
